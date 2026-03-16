@@ -26,7 +26,7 @@ class handler(BaseHTTPRequestHandler):
             "Access-Control-Allow-Methods": "GET, OPTIONS",
         }
 
-        # ── Validate ────────────────────────────────────────────────────
+        
         if not text:
             self._send_json(400, {"error": "text param is required"}, cors)
             return
