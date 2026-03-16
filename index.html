@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QRFT — QR Generator</title>
+  <meta name="description" content="Type anything. Python generates your QR code." />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* ──────────────────────────────────────────
+       DESIGN TOKENS
+    ────────────────────────────────────────── */
+    :root {
+      --ink:      #0d0d0d;
+      --paper:    #f0ebe0;
+      --acid:     #c6ff00;
+      --punch:    #ff2151;
+      --blue:     #0033ff;
+      --b:        3px solid var(--ink);
+      --shadow:   6px 6px 0 var(--ink);
+      --shadow-lg:10px 10px 0 var(--ink);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Mono', monospace;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100svh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      cursor: crosshair;
+      /* paper grain */
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='g'%3E%3CfeTurbulence baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23g)' opacity='0.04'/%3E%3C/svg%3E");
+    }
+
+    /* ──────────────────────────────────────────
+       HEADER
+    ────────────────────────────────────────── */
+    header {
+      border-bottom: var(--b);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      background: var(--paper);
+      z-index: 20;
+    }
+
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 5px;
+      background: var(--ink);
+      color: var(--acid);
+      padding: 2px 14px 0;
+    }
+
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border: var(--b);
+      padding: 5px 12px;
+      font-size: 0.58rem;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .badge-dot {
+      width: 7px; height: 7px;
+      background: var(--acid);
+      border-radius: 50%;
+      border: 1px solid var(--ink);
+      animation: blink 1.6s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%,100%{ opacity:1; } 50%{ opacity:.3; }
+    }
+
+    /* ──────────────────────────────────────────
+       MAIN LAYOUT
+    ────────────────────────────────────────── */
+    main {
+      display: grid;
+      place-items: center;
+      padding: 3rem 1.25rem 4rem;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 540px;
+      border: var(--b);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      animation: rise .6s cubic-bezier(.16,1,.3,1) both;
+    }
+    @keyframes rise {
+      from { opacity:0; transform:translateY(36px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ── card header stripe ── */
+    .stripe {
+      background: var(--ink);
+      padding: 18px 22px 14px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+    .stripe-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3rem;
+      line-height: .95;
+      color: var(--paper);
+      letter-spacing: 2px;
+    }
+    .stripe-title span { color: var(--acid); }
+    .stripe-sub {
+      font-size: 0.58rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(240,235,224,.4);
+      padding-bottom: 6px;
+      text-align: right;
+      line-height: 1.9;
+    }
+
+    /* ── body ── */
+    .body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .field-label {
+      font-size: 0.58rem;
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: .45;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    textarea {
+      width: 100%;
+      border: var(--b);
+      background: var(--paper);
+      padding: 12px 14px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.88rem;
+      color: var(--ink);
+      resize: none;
+      min-height: 88px;
+      line-height: 1.65;
+      outline: none;
+      transition: box-shadow .12s;
+    }
+    textarea:focus { box-shadow: var(--shadow); }
+    textarea::placeholder { opacity: .32; }
+
+    /* size toggles */
+    .size-row {
+      display: flex;
+      gap: 0;
+    }
+    .size-btn {
+      flex: 1;
+      border: var(--b);
+      border-right: none;
+      padding: 9px 4px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--ink);
+      cursor: crosshair;
+      transition: background .1s, color .1s;
+    }
+    .size-btn:last-child { border-right: var(--b); }
+    .size-btn.active,
+    .size-btn:hover     { background: var(--ink); color: var(--acid); }
+
+    /* error */
+    .err {
+      border: 2px solid var(--punch);
+      background: #fff0f2;
+      color: var(--punch);
+      padding: 9px 12px;
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: .5px;
+      display: none;
+    }
+    .err.show { display: block; }
+
+    /* generate button */
+    .gen-btn {
+      width: 100%;
+      padding: 16px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.45rem;
+      letter-spacing: 4px;
+      background: var(--acid);
+      color: var(--ink);
+      border: var(--b);
+      box-shadow: var(--shadow);
+      cursor: crosshair;
+      transition: transform .1s, box-shadow .1s;
+    }
+    .gen-btn:hover:not(:disabled) {
+      transform: translate(-3px,-3px);
+      box-shadow: var(--shadow-lg);
+    }
+    .gen-btn:active:not(:disabled) {
+      transform: translate(4px,4px);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+    .gen-btn:disabled { opacity:.5; cursor:wait; }
+
+    /* ── RESULT ── */
+    #result {
+      border-top: var(--b);
+      padding: 24px 20px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    #result.show {
+      display: flex;
+      animation: fadeUp .35s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(14px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* qr frame */
+    .qr-frame {
+      border: var(--b);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      background: #fff;
+      position: relative;
+    }
+    /* corner ticks — punch color */
+    .qr-frame::before,
+    .qr-frame::after {
+      content:'';
+      position:absolute;
+      width:16px; height:16px;
+      border-color: var(--punch);
+      border-style: solid;
+    }
+    .qr-frame::before { top:-3px; left:-3px; border-width:3px 0 0 3px; }
+    .qr-frame::after  { bottom:-3px; right:-3px; border-width:0 3px 3px 0; }
+
+    #qr-img {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* loading spinner inside frame */
+    .spinner {
+      display: none;
+      width: 200px; height: 200px;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1rem;
+      letter-spacing: 3px;
+      color: var(--ink);
+      opacity: .5;
+    }
+    .spinner.show { display: flex; }
+
+    /* action buttons */
+    .actions { display:flex; width:100%; }
+    .act-btn {
+      flex: 1;
+      padding: 12px;
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border: var(--b);
+      cursor: crosshair;
+      transition: transform .1s, box-shadow .1s;
+    }
+    .act-btn + .act-btn { border-left: none; }
+    .act-dl { background: var(--ink); color: var(--acid); }
+    .act-cp { background: transparent; color: var(--ink); }
+    .act-btn:hover {
+      transform: translate(-2px,-2px);
+      box-shadow: 4px 4px 0 var(--ink);
+      position: relative; z-index: 1;
+    }
+
+    /* copy toast */
+    .toast {
+      font-size: 0.58rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0;
+      transition: opacity .2s;
+      color: var(--blue);
+      font-weight: 500;
+      height: 0; overflow: hidden;
+    }
+    .toast.show { opacity: 1; height: auto; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: var(--b);
+      padding: .85rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.58rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      opacity: .38;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 500px) {
+      header { padding: 0 1rem; }
+      .body  { padding: 16px; }
+      .stripe-title { font-size: 2.3rem; }
+      footer { padding: .85rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <span class="logo">QRFT</span>
+  <div class="badge">
+    <span class="badge-dot"></span>
+    Python · Vercel
+  </div>
+</header>
+
+<!-- MAIN -->
+<main>
+  <div class="card">
+
+    <!-- stripe -->
+    <div class="stripe">
+      <div class="stripe-title">
+        TYPE.<br><span>GET</span><br>QR.
+      </div>
+      <div class="stripe-sub">
+        URL · TEXT · WIFI<br>ANYTHING WORKS<br>SERVER-SIDE PYTHON
+      </div>
+    </div>
+
+    <!-- body -->
+    <div class="body">
+
+      <div>
+        <label class="field-label" for="qr-input">
+          Enter URL, text, Wi-Fi password, anything →
+        </label>
+        <textarea
+          id="qr-input"
+          placeholder="https://github.com/yourname&#10;or any text at all…"
+          spellcheck="false"
+          autocomplete="off"
+          maxlength="2048"
+        ></textarea>
+      </div>
+
+      <div>
+        <label class="field-label">QR Size</label>
+        <div class="size-row" role="group" aria-label="QR size">
+          <button class="size-btn active" data-size="160">S · 160px</button>
+          <button class="size-btn"        data-size="220">M · 220px</button>
+          <button class="size-btn"        data-size="300">L · 300px</button>
+        </div>
+      </div>
+
+      <p class="err" id="err" role="alert"></p>
+
+      <button class="gen-btn" id="gen-btn">GENERATE QR →</button>
+
+    </div>
+
+    <!-- result -->
+    <div id="result">
+      <div class="qr-frame">
+        <div class="spinner" id="spinner">LOADING…</div>
+        <img id="qr-img" alt="Your QR code" style="display:none;" />
+      </div>
+      <div class="actions">
+        <button class="act-btn act-dl" id="dl-btn">↓ Download</button>
+        <button class="act-btn act-cp" id="cp-btn">⎘ Copy PNG</button>
+      </div>
+      <span class="toast" id="toast">✓ Copied to clipboard</span>
+    </div>
+
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <span>QRFT © 2026</span>
+  <span>Python serverless · Vercel</span>
+</footer>
+
+<script>
+  /* ── State ── */
+  let qrSize   = 160;
+  let lastBlob = null;   // keep blob for copy/download
+
+  const input  = document.getElementById('qr-input');
+  const genBtn = document.getElementById('gen-btn');
+  const err    = document.getElementById('err');
+  const result = document.getElementById('result');
+  const spinner= document.getElementById('spinner');
+  const qrImg  = document.getElementById('qr-img');
+  const dlBtn  = document.getElementById('dl-btn');
+  const cpBtn  = document.getElementById('cp-btn');
+  const toast  = document.getElementById('toast');
+
+  /* ── Size selector ── */
+  document.querySelectorAll('.size-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      qrSize = parseInt(btn.dataset.size, 10);
+    });
+  });
+
+  /* ── Helpers ── */
+  function showErr(msg) { err.textContent = '⚠ ' + msg; err.classList.add('show'); }
+  function clearErr()   { err.textContent = '';           err.classList.remove('show'); }
+
+  /* ── Generate ── */
+  async function generate() {
+    clearErr();
+    const text = input.value.trim();
+    if (!text) { showErr('Please enter some text or a URL.'); input.focus(); return; }
+    if (text.length > 2048) { showErr('Max 2048 characters.'); return; }
+
+    /* show loading state */
+    genBtn.disabled = true;
+    genBtn.textContent = 'GENERATING…';
+    result.classList.add('show');
+    spinner.classList.add('show');
+    qrImg.style.display = 'none';
+    lastBlob = null;
+
+    try {
+      /* call Python serverless function */
+      const url = `/api/generate?text=${encodeURIComponent(text)}&size=${qrSize}`;
+      const res = await fetch(url);
+
+      if (!res.ok) {
+        /* try to parse JSON error from backend */
+        let msg = `Server error ${res.status}`;
+        try { const j = await res.json(); msg = j.error || msg; } catch {}
+        throw new Error(msg);
+      }
+
+      /* response is raw PNG bytes */
+      const blob  = await res.blob();
+      lastBlob    = blob;
+      const objUrl = URL.createObjectURL(blob);
+
+      /* show image */
+      qrImg.onload = () => {
+        spinner.classList.remove('show');
+        qrImg.style.display = 'block';
+        result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+      qrImg.src    = objUrl;
+      qrImg.width  = qrSize;
+      qrImg.height = qrSize;
+
+    } catch (e) {
+      spinner.classList.remove('show');
+      result.classList.remove('show');
+      showErr(e.message);
+    } finally {
+      genBtn.disabled = false;
+      genBtn.textContent = 'GENERATE QR →';
+    }
+  }
+
+  genBtn.addEventListener('click', generate);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate();
+  });
+
+  /* ── Download ── */
+  dlBtn.addEventListener('click', () => {
+    if (!lastBlob) return;
+    const a = document.createElement('a');
+    a.href     = URL.createObjectURL(lastBlob);
+    a.download = `qrft-${Date.now()}.png`;
+    a.click();
+  });
+
+  /* ── Copy to clipboard ── */
+  cpBtn.addEventListener('click', async () => {
+    if (!lastBlob) return;
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': lastBlob })
+      ]);
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    } catch {
+      dlBtn.click(); /* fallback: just download */
+    }
+  });
+</script>
+
+</body>
+</html>
